@@ -47,6 +47,7 @@ router.post('/', auth, async (req, res) => {
       displayName: donor.displayName,
       city: donor.city,
       state: donor.state,
+      phone: donor.phone,
       // IMPORTANT: Do NOT send email, password, or exact coordinates
     }));
 

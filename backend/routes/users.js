@@ -79,32 +79,47 @@ router.patch('/location', auth, async (req, res) => {
   }
 });
 
+// --- MERGED CODE STARTS HERE ---
 router.patch('/donor-profile', auth, async (req, res) => {
   try {
     const { bloodType, isAvailable } = req.body;
 
+    // 1. Fetch the current user from the database
+    const user = await User.findById(req.user.id);
+
+    // 2. Check if a blood type is already set and if the user is trying to change it
+    if (user.donorProfile && user.donorProfile.bloodType && bloodType) {
+        if(user.donorProfile.bloodType !== bloodType){
+             return res.status(400).json({ msg: 'Blood type has already been set and cannot be changed.' });
+        }
+    }
+
     const donorProfileFields = {
-      'donorProfile.bloodType': bloodType,
       'donorProfile.isAvailable': isAvailable,
     };
 
-    const user = await User.findByIdAndUpdate(
+    // Only set bloodType if it's not already defined in the database
+    if (!user.donorProfile || !user.donorProfile.bloodType) {
+      donorProfileFields['donorProfile.bloodType'] = bloodType;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
       { $set: donorProfileFields },
       { new: true, runValidators: true }
     ).select('-password');
 
-    if (!user) {
+    if (!updatedUser) {
       return res.status(404).json({ msg: 'User not found' });
     }
 
-    res.json(user);
-  } catch (err)
-  {
+    res.json(updatedUser);
+  } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
   }
 });
+// --- MERGED CODE ENDS HERE ---
 
 
 module.exports = router;

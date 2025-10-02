@@ -1,3 +1,4 @@
+// backend/models/User.js
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -5,6 +6,26 @@ const userSchema = new mongoose.Schema({
   displayName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true }, // For email/pass auth
+  phone: { type: String, required: true },
+  role: {
+    type: String,
+    enum: ['user', 'admin', 'bloodbank_admin'],  
+    default: 'user'
+  },
+
+  // --- ADDED FIELD ---
+  // If the user is an approved donor of a specific bank
+  bloodBank: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BloodBank',
+    default: null
+  },
+  pendingBankRequest: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BloodBank',
+    default: null
+  },
+  // --------------------
 
   city: { type: String, required: true },
   state: { type: String, required: true },
@@ -15,7 +36,7 @@ const userSchema = new mongoose.Schema({
   location: {
     type: {
       type: String,
-      enum: ['Point'], 
+      enum: ['Point'],
       required: true
     },
     coordinates: {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -22,7 +22,19 @@ const Login = () => {
       // Assuming the backend sends a token and user data
       localStorage.setItem('authToken', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      navigate('/dashboard');
+
+      // --- MERGED CODE STARTS HERE ---
+      const userRole = response.data.user.role;
+      if (userRole === 'admin') {
+        navigate('/admin');
+      } else if (userRole === 'bloodbank_admin') {
+        // You'll need to create this page next
+        navigate('/blood-bank/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+      // --- MERGED CODE ENDS HERE ---
+
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid credentials.');
     } finally {
@@ -42,9 +54,17 @@ const Login = () => {
             {loading ? 'Logging In...' : 'Log In'}
           </button>
         </form>
+
+        <p className="text-sm text-center text-gray-600">
+          Don't have an account?{' '}
+          <Link to="/signup" className="font-medium text-red-600 hover:underline">
+            Sign Up
+          </Link>
+        </p>
       </div>
     </div>
   );
 };
 
 export default Login;
+

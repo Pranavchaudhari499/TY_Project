@@ -48,7 +48,11 @@ const LandingPage = () => {
       <nav className="fixed top-0 left-0 w-full bg-white bg-opacity-90 shadow-md z-50">
         <div className="container mx-auto px-6 py-3 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-red-600">BloodBridge</h1>
+          {/* --- MERGED CODE STARTS HERE --- */}
           <div className="space-x-4">
+            <Link to="/blood-bank/register" className="text-gray-700 hover:text-red-600">
+              For Blood Banks
+            </Link>
             <Link to="/login" className="px-4 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50">
               Log In
             </Link>
@@ -56,6 +60,7 @@ const LandingPage = () => {
               Sign Up
             </Link>
           </div>
+          {/* --- MERGED CODE ENDS HERE --- */}
         </div>
       </nav>
 

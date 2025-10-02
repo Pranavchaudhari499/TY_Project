@@ -1,3 +1,4 @@
+// backend/routes/auth.js
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -8,9 +9,7 @@ const router = express.Router();
 // ## POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-
-    console.log('Backend received req.body:', req.body);
-    const { displayName, email, password, location, city, state, gender} = req.body;
+    const { displayName, email, password, phone, location, city, state, gender } = req.body;
     const weight = req.body.weight ? parseInt(req.body.weight, 10) : null;
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -22,22 +21,31 @@ router.post('/register', async (req, res) => {
       displayName,
       email,
       password: hashedPassword,
+      phone,
       location: location,
-      city,       // add this
-      state,      // add this
-      gender,     // add this
+      city,
+      state,
+      gender,
       weight,
     });
     const savedUser = await newUser.save();
     const payload = { user: { id: savedUser.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    
+    // Consistent and complete user object
     const userResponse = {
         _id: savedUser._id,
         displayName: savedUser.displayName,
         email: savedUser.email,
         location: savedUser.location,
-        donorProfile: savedUser.donorProfile
+        donorProfile: savedUser.donorProfile,
+        city: savedUser.city,
+        state: savedUser.state,
+        gender: savedUser.gender,
+        weight: savedUser.weight,
+        role: savedUser.role
     };
+
     res.status(201).json({
       message: 'User registered successfully!',
       token,
@@ -63,13 +71,21 @@ router.post('/login', async (req, res) => {
     }
     const payload = { user: { id: user.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    // --- MERGED & UPDATED OBJECT ---
     const userResponse = {
         _id: user._id,
         displayName: user.displayName,
         email: user.email,
         location: user.location,
-        donorProfile: user.donorProfile
+        donorProfile: user.donorProfile,
+        city: user.city,
+        state: user.state,
+        gender: user.gender,
+        weight: user.weight,
+        role: user.role
     }
+    
     res.json({ token, user: userResponse });
   } catch (error) {
     console.error("Login Error:", error);

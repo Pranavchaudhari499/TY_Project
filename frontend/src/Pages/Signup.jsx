@@ -1,17 +1,19 @@
+// client/src/pages/Signup.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
     displayName: '',
     email: '',
     password: '',
-    city: '',       // New
-    state: '',      // New
-    gender: '',     // New
-    weight: '',     // New
-    location: null, // From old
+    phone: '', // <-- ADDED phone
+    city: '',
+    state: '',
+    gender: '',
+    weight: '',
+    location: null,
   });
 
   const [error, setError] = useState('');
@@ -72,7 +74,7 @@ const Signup = () => {
         <h2 className="text-2xl font-bold text-center text-red-600">
           Join BloodBridge
         </h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Full Name, Email, Password */}
           <input
             type="text"
@@ -90,6 +92,16 @@ const Signup = () => {
             required
             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
           />
+          {/* --- MERGED PHONE INPUT --- */}
+          <input
+            type="tel"
+            name="phone"
+            placeholder="Mobile Number"
+            onChange={handleChange}
+            required
+            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+          {/* ------------------------- */}
           <input
             type="password"
             name="password"
@@ -166,6 +178,14 @@ const Signup = () => {
             {loading ? 'Signing Up...' : 'Sign Up'}
           </button>
         </form>
+
+        <p className="text-sm text-center text-gray-600">
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-red-600 hover:underline">
+            Log In
+          </Link>
+        </p>
+
       </div>
     </div>
   );
