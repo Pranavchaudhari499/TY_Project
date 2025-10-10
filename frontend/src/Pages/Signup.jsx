@@ -13,6 +13,7 @@ const Signup = () => {
     state: '',
     gender: '',
     weight: '',
+    dateOfBirth: '', // <-- ADDED dateOfBirth
     location: null,
   });
 
@@ -92,7 +93,7 @@ const Signup = () => {
             required
             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
           />
-          {/* --- MERGED PHONE INPUT --- */}
+          {/* Phone Input */}
           <input
             type="tel"
             name="phone"
@@ -101,7 +102,6 @@ const Signup = () => {
             required
             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
           />
-          {/* ------------------------- */}
           <input
             type="password"
             name="password"
@@ -151,6 +151,19 @@ const Signup = () => {
               onChange={handleChange}
               required
               className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+          </div>
+
+          {/* Date of Birth Field */}
+          <div>
+            <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">Date of Birth</label>
+            <input 
+                type="date" 
+                name="dateOfBirth" 
+                id="dateOfBirth"
+                onChange={handleChange} 
+                required 
+                className="w-full mt-1 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" 
             />
           </div>
 

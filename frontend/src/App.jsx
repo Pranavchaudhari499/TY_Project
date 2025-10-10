@@ -9,10 +9,25 @@ import BloodBankRegister from './pages/BloodBankRegister';
 import BloodBankAdminDashboard from './pages/BloodBankAdminDashboard';
 import BloodBankAdminRoute from './components/routing/BloodBankAdminRoute';
 import AdminRoute from './components/routing/AdminRoute'; // Import admin route
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   return (
     <Router>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/blood-bank/register" element={<BloodBankRegister />} />

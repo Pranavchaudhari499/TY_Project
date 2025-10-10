@@ -1,0 +1,8 @@
+{
+  "welcomeMessage": "Welcome Back",
+  "emailLabel": "Email Address",
+  "passwordLabel": "Password",
+  "loginButton": "Log In",
+  "dontHaveAccount": "Don't have an account?",
+  "signUpLink": "Sign Up"
+}

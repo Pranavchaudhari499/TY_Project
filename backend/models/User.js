@@ -49,7 +49,15 @@ const userSchema = new mongoose.Schema({
   donorProfile: {
     bloodType: String,
     lastDonatedOn: Date,
-    isAvailable: { type: Boolean, default: true }
+    isAvailable: { type: Boolean, default: true },
+
+    donationHistory: [{
+      date: { type: Date, default: Date.now },
+      status: { 
+        type: String, 
+        enum: ['notified', 'accepted', 'donated', 'unavailable'] 
+      }
+    }]
   }
 }, { timestamps: true });
 

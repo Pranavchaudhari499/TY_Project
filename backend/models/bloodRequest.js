@@ -1,4 +1,3 @@
-// server/models/bloodRequest.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -10,6 +9,11 @@ const BloodRequestSchema = new Schema({
     coordinates: { type: [Number], required: true } // [longitude, latitude]
   },
   isFulfilled: { type: Boolean, default: false },
+  
+  // --- NEW FIELD ADDED ---
+  // Keep track of user IDs who have already responded (accepted or declined)
+  respondedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+
 }, { timestamps: true });
 
 BloodRequestSchema.index({ location: '2dsphere' });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 // It's a good practice to use an icon library like react-icons
 // To install: npm install react-icons
@@ -50,6 +51,7 @@ const LandingPage = () => {
           <h1 className="text-2xl font-bold text-red-600">BloodBridge</h1>
           {/* --- MERGED CODE STARTS HERE --- */}
           <div className="space-x-4">
+            <LanguageSwitcher />
             <Link to="/blood-bank/register" className="text-gray-700 hover:text-red-600">
               For Blood Banks
             </Link>

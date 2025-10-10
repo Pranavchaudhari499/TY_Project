@@ -1,8 +1,10 @@
-// frontend/src/pages/Dashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Droplet, MapPin, Heart, Users, Clock, Bell, Activity, Building } from 'lucide-react';
+import Chatbot from '../components/Chatbot';
+import { io } from "socket.io-client";
+import { toast } from 'react-toastify';
+import { Droplet, MapPin, Heart, Users, Clock, Bell, Activity, Building, MessageSquare, X, Send, Bot, Upload, FileText } from 'lucide-react';
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
@@ -10,23 +12,47 @@ const Dashboard = () => {
   const [requestData, setRequestData] = useState({ bloodType: '' });
   const [requestMessage, setRequestMessage] = useState('');
   const [foundDonors, setFoundDonors] = useState([]);
+  const [foundBloodBanks, setFoundBloodBanks] = useState([]); // State for blood banks
   const [donorData, setDonorData] = useState({ bloodType: '', isAvailable: true });
   const [donorMessage, setDonorMessage] = useState('');
   const [relevantRequests, setRelevantRequests] = useState([]);
   const [bloodBanks, setBloodBanks] = useState([]);
   const [bankMessage, setBankMessage] = useState({});
+  const [reportFile, setReportFile] = useState(null); // NEW: For blood report upload
+  const [targetBank, setTargetBank] = useState(null); // NEW: To know which bank we're registering with
+  const [uploadProgress, setUploadProgress] = useState(0); // NEW: Upload progress
+  const [isUploading, setIsUploading] = useState(false); // NEW: Upload state
   const navigate = useNavigate();
+  const [token, setToken] = useState(null);
+  const socket = useRef();
+  const fileInputRef = useRef(null); // NEW: File input reference
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    const token = localStorage.getItem('authToken');
+    // Establish socket connection
+    socket.current = io("http://localhost:5000");
 
-    if (!storedUser || !token) {
+    // Listen for incoming notifications
+    socket.current.on("acceptance-notification", (data) => {
+      toast.success(`✅ ${data.donorName} accepted your request! Contact: ${data.donorPhone}`);
+    });
+
+    socket.current.on("getNotification", (data) => {
+      toast.info(`🔔 ${data.message}`);
+    });
+
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    const storedToken = localStorage.getItem('authToken');
+
+    if (!storedUser || !storedToken) {
       navigate('/login');
       return;
     }
-
+    
+    setToken(storedToken);
     setUser(storedUser);
+
+    // Identify this user to the socket server
+    socket.current.emit("addUser", storedUser._id);
 
     if (storedUser.donorProfile) {
       setDonorData({
@@ -38,7 +64,7 @@ const Dashboard = () => {
     const fetchRelevantRequests = async () => {
       if (storedUser.donorProfile && storedUser.donorProfile.bloodType) {
         try {
-          const config = { headers: { 'x-auth-token': token } };
+          const config = { headers: { 'x-auth-token': storedToken } };
           const res = await axios.get('http://localhost:5000/api/requests/relevant', config);
           setRelevantRequests(res.data);
         } catch (err) {
@@ -49,7 +75,7 @@ const Dashboard = () => {
 
     const fetchBloodBanks = async () => {
       try {
-        const config = { headers: { 'x-auth-token': token } };
+        const config = { headers: { 'x-auth-token': storedToken } };
         const res = await axios.get('http://localhost:5000/api/blood-banks', config);
         setBloodBanks(res.data);
       } catch (err) {
@@ -59,9 +85,19 @@ const Dashboard = () => {
 
     fetchRelevantRequests();
     fetchBloodBanks();
+
+    // Cleanup on component unmount
+    return () => {
+      if (socket.current) {
+        socket.current.disconnect();
+      }
+    };
   }, [navigate]);
 
   const handleLogout = () => {
+    if (socket.current) {
+      socket.current.disconnect();
+    }
     localStorage.removeItem('user');
     localStorage.removeItem('authToken');
     navigate('/login');
@@ -76,8 +112,8 @@ const Dashboard = () => {
           coordinates: [position.coords.longitude, position.coords.latitude],
         };
         try {
-          const token = localStorage.getItem('authToken');
-          const config = { headers: { 'x-auth-token': token } };
+          const authToken = localStorage.getItem('authToken');
+          const config = { headers: { 'x-auth-token': authToken } };
           const res = await axios.patch(
             'http://localhost:5000/api/users/location',
             { location: newLocation },
@@ -101,19 +137,21 @@ const Dashboard = () => {
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
     setFoundDonors([]);
-    setRequestMessage('Searching for donors...');
+    setFoundBloodBanks([]); // Clear previous blood bank results
+    setRequestMessage('Searching for donors and blood banks...');
     navigator.geolocation.getCurrentPosition(async (position) => {
       const liveLocation = {
         type: 'Point',
         coordinates: [position.coords.longitude, position.coords.latitude],
       };
       try {
-        const token = localStorage.getItem('authToken');
-        const config = { headers: { 'x-auth-token': token } };
+        const authToken = localStorage.getItem('authToken');
+        const config = { headers: { 'x-auth-token': authToken } };
         const body = { bloodType: requestData.bloodType, location: liveLocation };
         const res = await axios.post('http://localhost:5000/api/requests', body, config);
         setRequestMessage(`✅ ${res.data.message}`);
         setFoundDonors(res.data.donors || []);
+        setFoundBloodBanks(res.data.bloodBanks || []); // Set the blood bank state
       } catch (err) {
         setRequestMessage('❌ Error creating request.');
       }
@@ -129,8 +167,8 @@ const Dashboard = () => {
     e.preventDefault();
     setDonorMessage('Saving...');
     try {
-      const token = localStorage.getItem('authToken');
-      const config = { headers: { 'x-auth-token': token } };
+      const authToken = localStorage.getItem('authToken');
+      const config = { headers: { 'x-auth-token': authToken } };
       const res = await axios.patch(
         'http://localhost:5000/api/users/donor-profile',
         donorData,
@@ -144,20 +182,123 @@ const Dashboard = () => {
     }
   };
 
-  const handleRegisterWithBank = async (bankId) => {
+  // UPDATED: Enhanced file upload handler
+  const handleRegisterWithBank = async (e) => {
+    e.preventDefault();
+    if (!reportFile) {
+        toast.error("Please upload a blood report.");
+        return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    if (!allowedTypes.includes(reportFile.type)) {
+        toast.error("Please upload a valid file (JPEG, PNG, or PDF).");
+        return;
+    }
+
+    // Validate file size (5MB limit)
+    if (reportFile.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('bloodReport', reportFile);
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setBankMessage({ id: targetBank, msg: 'Uploading blood report...' });
+    
     try {
       const token = localStorage.getItem('authToken');
-      const config = { headers: { 'x-auth-token': token } };
-      const res = await axios.post(`http://localhost:5000/api/blood-banks/${bankId}/register-request`, {}, config);
+      const config = { 
+        headers: { 
+          'x-auth-token': token,
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
+      };
       
-      // Optimistically update the user state to reflect the pending request
-      const updatedUser = { ...user, pendingBankRequest: bankId };
+      // const res = await axios.post(
+      //   `http://localhost:5000/api/blood-banks/${targetBank}/register-request`, 
+      //   formData, 
+      //   config
+      // );
+      const res = await axios.post(
+            `http://localhost:5000/api/blood-banks/${targetBank}/register-request`, 
+            formData, 
+            config
+      );
+      
+      // Update user state with pending request
+      const updatedUser = { ...user, pendingBankRequest: targetBank };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
 
-      setBankMessage({ id: bankId, msg: `✅ ${res.data.msg}` });
+      toast.success("Registration request submitted with blood report!");
+      setBankMessage({ id: targetBank, msg: `✅ ${res.data.msg}` });
+      
+      // Close modal after success
+      setTimeout(() => {
+        setTargetBank(null);
+        setReportFile(null);
+        setUploadProgress(0);
+        setIsUploading(false);
+      }, 2000);
+
     } catch (err) {
-      setBankMessage({ id: bankId, msg: `❌ ${err.response.data.msg}` });
+      console.error('Upload error:', err);
+      const errorMsg = err.response?.data?.msg || 'Error submitting request. Please try again.';
+      setBankMessage({ id: targetBank, msg: `❌ ${errorMsg}` });
+      toast.error("Failed to submit registration request.");
+      setIsUploading(false);
+    }
+  };
+
+  // NEW: Handle file selection with better UX
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setReportFile(file);
+    }
+  };
+
+  // NEW: Clear file selection
+  const handleClearFile = () => {
+    setReportFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // NEW: Get file icon based on type
+  const getFileIcon = (file) => {
+    if (file.type.includes('image')) {
+      return <FileText className="w-5 h-5 text-blue-500" />;
+    } else if (file.type.includes('pdf')) {
+      return <FileText className="w-5 h-5 text-red-500" />;
+    }
+    return <FileText className="w-5 h-5 text-gray-500" />;
+  };
+
+  // --- Handler for responding to requests ---
+  const handleRequestResponse = async (requestId, responseStatus) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const config = { headers: { 'x-auth-token': token } };
+      await axios.post(`http://localhost:5000/api/requests/${requestId}/respond`, { status: responseStatus }, config);
+
+      // Remove the request from the list after responding
+      setRelevantRequests(prevRequests => prevRequests.filter(req => req._id !== requestId));
+      toast.success("Your response has been sent.");
+
+    } catch (err) {
+      console.error("Failed to respond to request:", err);
+      toast.error("Could not send your response.");
     }
   };
 
@@ -395,22 +536,61 @@ const Dashboard = () => {
               )}
             </form>
 
+            {/* Display Found Donors with ML Scores */}
             {foundDonors.length > 0 && (
               <div className="mt-6 space-y-3">
                 <h4 className="font-black text-gray-900 flex items-center">
                   <Users className="w-5 h-5 mr-2 text-green-600" />
-                  Donors Found
+                  Potential Donors Found (Ranked by Availability)
                 </h4>
-                {foundDonors.map(donor => (
-                  <div key={donor.id} className="p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 transform hover:scale-105 transition-all duration-300">
+                {foundDonors
+                  .filter(donor => donor)
+                  .map(donor => (
+                    <div key={donor.id} className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 transform hover:scale-105 transition-all duration-300">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-bold text-gray-900">{donor.displayName}</p>
+                          <p className="text-sm text-gray-600">{donor.city}, {donor.state}</p>
+                        </div>
+                        <a href={`tel:${donor.phone}`} className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-300">
+                          📞 {donor.phone}
+                        </a>
+                      </div>
+                      {/* ML Availability Score Badge */}
+                      <div className="mt-2 flex justify-between items-center">
+                        <span className="text-xs font-bold text-green-800 bg-green-100 px-3 py-1 rounded-full">
+                          {Math.round(donor.availability_score * 100)}% Match
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {donor.availability_score > 0.8 ? '🔥 Highly Likely' : 
+                           donor.availability_score > 0.6 ? '✅ Likely' : 
+                           '⚡ Available'}
+                        </span>
+                      </div>
+                    </div>
+                ))}
+              </div>
+            )}
+
+            {/* Display Found Blood Banks */}
+            {foundBloodBanks.length > 0 && (
+              <div className="mt-6 space-y-3">
+                <h4 className="font-black text-gray-900 flex items-center">
+                  <Building className="w-5 h-5 mr-2 text-blue-600" />
+                  Nearby Blood Banks with Stock
+                </h4>
+                {foundBloodBanks.map(bank => (
+                  <div key={bank.id} className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 transform hover:scale-105 transition-all duration-300">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-bold text-gray-900">{donor.displayName}</p>
-                        <p className="text-sm text-gray-600">{donor.city}, {donor.state}</p>
+                        <p className="font-bold text-gray-900">{bank.name}</p>
+                        <p className="text-sm text-gray-600">{bank.city}, {bank.state}</p>
                       </div>
-                      <a href={`tel:${donor.phone}`} className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-300">
-                        📞 {donor.phone}
-                      </a>
+                      {bank.contactPhone && (
+                        <a href={`tel:${bank.contactPhone}`} className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-300">
+                          📞 {bank.contactPhone}
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -429,76 +609,225 @@ const Dashboard = () => {
               <h3 className="text-2xl font-black text-gray-900">Nearby Blood Requests</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {relevantRequests.map((req) => (
-                <div
-                  key={req._id}
-                  className="group relative p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-blue-200 transform hover:scale-105 hover:shadow-xl transition-all duration-300"
-                >
-                  <div className="absolute top-3 right-3">
-                    <span className="px-3 py-1 text-xs font-black text-white bg-red-500 rounded-full">
-                      URGENT
-                    </span>
+              {relevantRequests
+                .filter(req => req && req.recipient)
+                .map((req) => (
+                  <div
+                    key={req._id}
+                    className="group relative p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-blue-200 transform hover:scale-105 hover:shadow-xl transition-all duration-300"
+                  >
+                    <div className="absolute top-3 right-3">
+                      <span className="px-3 py-1 text-xs font-black text-white bg-red-500 rounded-full">
+                        URGENT
+                      </span>
+                    </div>
+                    <p className="text-3xl font-black text-red-600 mb-2">{req.bloodType}</p>
+                    <p className="font-bold text-gray-900">{req.recipient.displayName}</p>
+                    <p className="text-sm text-gray-600">{req.recipient.city}, {req.recipient.state}</p>
+                    <p className="text-xs text-gray-500 mt-3">
+                      {new Date(req.createdAt).toLocaleDateString()}
+                    </p>
+                    {/* NEW: Response Buttons */}
+                    <div className="mt-4 space-x-2">
+                      <button
+                        onClick={() => handleRequestResponse(req._id, 'accepted')}
+                        className="px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-300"
+                      >
+                        Accept Request
+                      </button>
+                      <button
+                        onClick={() => handleRequestResponse(req._id, 'unavailable')}
+                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-300"
+                      >
+                        Decline
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-3xl font-black text-red-600 mb-2">{req.bloodType}</p>
-                  <p className="font-bold text-gray-900">{req.recipient.displayName}</p>
-                  <p className="text-sm text-gray-600">{req.recipient.city}, {req.recipient.state}</p>
-                  <p className="text-xs text-gray-500 mt-3">
-                    {new Date(req.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Blood Banks Section */}
+        {/* Blood Banks Registration Section */}
         <div className="mt-6 bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-200 transform hover:scale-[1.01] transition-all duration-500">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 bg-gradient-to-br from-gray-600 to-gray-800 rounded-xl shadow-lg">
-                <Building className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-2xl font-black text-gray-900">Register with a Blood Bank</h3>
+                <div className="p-3 bg-gradient-to-br from-gray-600 to-gray-800 rounded-xl shadow-lg">
+                    <Building className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-black text-gray-900">Register with a Blood Bank</h3>
             </div>
             
             <div className="mt-4 space-y-4">
-              {bloodBanks.length > 0 ? bloodBanks.map(bank => {
-                // Determine the user's status with this specific bank
-                const isRegistered = user.bloodBank === bank._id;
-                const isPending = user.pendingBankRequest === bank._id;
-                const hasOtherCommitment = user.bloodBank || user.pendingBankRequest;
+                {bloodBanks.length > 0 ? bloodBanks.map(bank => {
+                    const isRegistered = user.bloodBank === bank._id;
+                    const isPending = user.pendingBankRequest === bank._id;
+                    const hasOtherCommitment = user.bloodBank || user.pendingBankRequest;
 
-                return (
-                  <div key={bank._id} className="p-4 bg-gray-50 rounded-xl border-2 border-gray-200 flex justify-between items-center transform hover:scale-105 transition-transform duration-300">
-                    <div>
-                      <p className="font-bold text-lg text-gray-800">{bank.name}</p>
-                      <p className="text-sm text-gray-600">{bank.city}, {bank.state}</p>
-                    </div>
-                    <div className="text-right">
-                      {isRegistered ? (
-                        <span className="px-5 py-2 text-sm font-bold text-white bg-green-500 rounded-lg shadow-md">✅ Registered</span>
-                      ) : isPending ? (
-                        <span className="px-5 py-2 text-sm font-bold text-white bg-yellow-500 rounded-lg shadow-md">Pending</span>
-                      ) : (
-                        <button
-                          onClick={() => handleRegisterWithBank(bank._id)}
-                          className="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                          disabled={hasOtherCommitment || bankMessage.id === bank._id}
-                        >
-                          Register
-                        </button>
-                      )}
-                      {bankMessage.id === bank._id && <p className="text-xs text-center mt-1 font-semibold">{bankMessage.msg}</p>}
-                    </div>
-                  </div>
-                );
-              }) : <p className="text-center text-gray-500">No registered blood banks found nearby.</p>}
+                    return (
+                        <div key={bank._id} className="p-4 bg-gray-50 rounded-xl border-2 border-gray-200 flex justify-between items-center transform hover:scale-105 transition-transform duration-300">
+                            <div>
+                                <p className="font-bold text-lg text-gray-800">{bank.name}</p>
+                                <p className="text-sm text-gray-600">{bank.city}, {bank.state}</p>
+                                <p className="text-xs text-gray-500 mt-1">Contact: {bank.contactPhone}</p>
+                            </div>
+                            <div className="text-right">
+                                {isRegistered ? (
+                                    <span className="px-5 py-2 text-sm font-bold text-white bg-green-500 rounded-lg shadow-md">✅ Registered</span>
+                                ) : isPending ? (
+                                    <span className="px-5 py-2 text-sm font-bold text-white bg-yellow-500 rounded-lg shadow-md">Pending Review</span>
+                                ) : (
+                                    <button
+                                        onClick={() => setTargetBank(bank._id)}
+                                        className="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                                        disabled={hasOtherCommitment || bankMessage.id === bank._id}
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        Register to Donate
+                                    </button>
+                                )}
+                                {bankMessage.id === bank._id && <p className="text-xs text-center mt-1 font-semibold">{bankMessage.msg}</p>}
+                            </div>
+                        </div>
+                    );
+                }) : <p className="text-center text-gray-500">No registered blood banks found nearby.</p>}
             </div>
-
-          </div>
-
+        </div>
       </main>
 
-      <style jsx>{`
+      {/* Enhanced Blood Report Upload Modal */}
+      {targetBank && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-200">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl text-gray-900">Register as Donor</h3>
+                    <button 
+                        onClick={() => {
+                            setTargetBank(null);
+                            setReportFile(null);
+                            setUploadProgress(0);
+                            setIsUploading(false);
+                        }}
+                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        disabled={isUploading}
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+                
+                <form onSubmit={handleRegisterWithBank} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Upload Blood Report *
+                        </label>
+                        
+                        {!reportFile ? (
+                            <div 
+                                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition-colors"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-600">Click to upload blood report</p>
+                                <p className="text-xs text-gray-500 mt-1">Supports: JPG, PNG, PDF (Max 5MB)</p>
+                                <input 
+                                    ref={fileInputRef}
+                                    type="file" 
+                                    onChange={handleFileSelect}
+                                    accept=".jpg,.jpeg,.png,.pdf"
+                                    className="hidden"
+                                    required
+                                />
+                            </div>
+                        ) : (
+                            <div className="border-2 border-green-200 bg-green-50 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                        {getFileIcon(reportFile)}
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                                                {reportFile.name}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {(reportFile.size / 1024 / 1024).toFixed(2)} MB
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleClearFile}
+                                        className="text-red-500 hover:text-red-700 transition-colors"
+                                        disabled={isUploading}
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Upload Progress Bar */}
+                    {isUploading && (
+                        <div className="space-y-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${uploadProgress}%` }}
+                                ></div>
+                            </div>
+                            <p className="text-xs text-gray-600 text-center">
+                                Uploading... {uploadProgress}%
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                        <button 
+                            type="button" 
+                            onClick={() => {
+                                setTargetBank(null);
+                                setReportFile(null);
+                                setUploadProgress(0);
+                                setIsUploading(false);
+                            }}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                            disabled={isUploading}
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit" 
+                            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed flex items-center gap-2"
+                            disabled={!reportFile || isUploading}
+                        >
+                            {isUploading ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    Submitting...
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="w-4 h-4" />
+                                    Submit Request
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    
+                    {bankMessage.id === targetBank && (
+                        <p className={`text-sm text-center mt-2 font-medium ${
+                            bankMessage.msg.includes('✅') ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                            {bankMessage.msg}
+                        </p>
+                    )}
+                </form>
+            </div>
+        </div>
+      )}
+
+      {/* RENDER CHATBOT and pass token */}
+      {token && <Chatbot token={token} />}
+
+      <style>{`
         @keyframes blob {
           0%, 100% { transform: translate(0, 0) scale(1); }
           33% { transform: translate(30px, -50px) scale(1.1); }
@@ -512,6 +841,19 @@ const Dashboard = () => {
         }
         .animation-delay-4000 {
           animation-delay: 4s;
+        }
+        @keyframes pop-in {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        .animate-pop-in {
+            animation: pop-in 0.3s ease-out forwards;
         }
       `}</style>
     </div>

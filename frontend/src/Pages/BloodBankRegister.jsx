@@ -8,9 +8,11 @@ const BloodBankRegister = () => {
     bankName: '',
     city: '',
     state: '',
+    bankPhone: '', // <-- ADDED: Public contact number
     adminName: '',
     email: '',
     password: '',
+    adminPhone: '', // <-- ADDED: Administrator's phone number
     location: null,
   });
   const [error, setError] = useState('');
@@ -64,6 +66,10 @@ const BloodBankRegister = () => {
           <fieldset className="border p-4 rounded-md">
             <legend className="text-lg font-semibold">Blood Bank Details</legend>
             <input type="text" name="bankName" placeholder="Blood Bank Name" onChange={handleChange} required className="w-full mt-2 px-4 py-2 border rounded-md" />
+            
+            {/* ADDED: Bank Phone Input */}
+            <input type="tel" name="bankPhone" placeholder="Public Contact Number" onChange={handleChange} required className="w-full mt-4 px-4 py-2 border rounded-md" />
+
             <div className="flex space-x-4 mt-4">
               <input type="text" name="city" placeholder="City" onChange={handleChange} required className="w-full px-4 py-2 border rounded-md" />
               <input type="text" name="state" placeholder="State" onChange={handleChange} required className="w-full px-4 py-2 border rounded-md" />
@@ -72,6 +78,10 @@ const BloodBankRegister = () => {
           <fieldset className="border p-4 rounded-md">
             <legend className="text-lg font-semibold">Administrator Details</legend>
             <input type="text" name="adminName" placeholder="Administrator's Full Name" onChange={handleChange} required className="w-full mt-2 px-4 py-2 border rounded-md" />
+            
+            {/* ADDED: Admin Phone Input */}
+            <input type="tel" name="adminPhone" placeholder="Administrator's Phone Number" onChange={handleChange} required className="w-full mt-4 px-4 py-2 border rounded-md" />
+
             <input type="email" name="email" placeholder="Administrator's Email" onChange={handleChange} required className="w-full mt-4 px-4 py-2 border rounded-md" />
             <input type="password" name="password" placeholder="Password" onChange={handleChange} required className="w-full mt-4 px-4 py-2 border rounded-md" />
           </fieldset>
