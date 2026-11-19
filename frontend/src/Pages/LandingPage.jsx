@@ -67,12 +67,17 @@ const LandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <header className="min-h-screen flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=2070&auto=format&fit=crop')" }}>
-        <div className="absolute inset-0 bg-black opacity-50"></div>
-        <div className="text-center z-10 text-white p-4">
+      <header 
+  className="min-h-screen flex items-center justify-center bg-cover bg-center" 
+  style={{ backgroundImage: "url('https://images.unsplash.com/photo-1615461065929-4f8ffed6ca40?q=80&w=2070&auto=format&fit=crop')" }}
+>
+        {/* Overlay - Adjusted opacity to make text pop against the new image */}
+        <div className="absolute inset-0 bg-black opacity-60"></div>
+        
+        <div className="relative z-10 text-center text-white p-4">
           <h2 className="text-5xl md:text-6xl font-extrabold mb-4">Connecting Donors, Saving Lives</h2>
           <p className="text-lg md:text-xl max-w-2xl mx-auto mb-8">BloodBridge is a unified platform to streamline blood donation across India, making it faster and easier to find help in emergencies.</p>
-          <Link to="/signup" className="px-8 py-3 text-lg font-bold text-white bg-red-600 rounded-full hover:bg-red-700">
+          <Link to="/signup" className="px-8 py-3 text-lg font-bold text-white bg-red-600 rounded-full hover:bg-red-700 transition duration-300">
             Join Now
           </Link>
         </div>

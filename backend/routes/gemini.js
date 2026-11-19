@@ -72,7 +72,7 @@ router.post('/chat', auth, async (req, res) => {
           content: contextualPrompt
         }
       ],
-      model: "gemma2-9b-it", // You can change this to other Groq models like "mixtral-8x7b-32768"
+      model: "llama-3.3-70b-versatile", // You can change this to other Groq models like "mixtral-8x7b-32768"
       temperature: 0.7,
       max_tokens: 1024,
       stream: false
